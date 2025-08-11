@@ -1,0 +1,2 @@
+# KARAOKE-PARTY
+app karaoke
