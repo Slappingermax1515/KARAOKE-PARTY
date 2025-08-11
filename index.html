@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karaoke Party</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #player-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+            background: #000;
+        }
+        #player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            50% {
+                opacity: .5;
+            }
+        }
+        .song-item:hover .play-song-btn {
+            opacity: 1;
+        }
+        .play-song-btn {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div id="app-container" class="container mx-auto p-4 max-w-4xl">
+
+        <!-- Role Selection View -->
+        <div id="role-selection-view" class="flex flex-col items-center justify-center min-h-screen text-center">
+            <h1 class="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">Karaoke Party</h1>
+            <p class="text-gray-300 mb-8">Come vuoi partecipare?</p>
+            <div class="space-y-4 md:space-y-0 md:space-x-4 flex flex-col md:flex-row">
+                <button id="master-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105">
+                    Sono il Master (DJ)
+                </button>
+                <button id="participant-btn" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105">
+                    Sono un Partecipante
+                </button>
+            </div>
+             <div class="mt-8 p-4 bg-gray-800 rounded-lg text-sm text-gray-400">
+                <p><strong class="text-white">ID Sessione:</strong> <span id="session-id-display">...</span></p>
+                <p class="mt-2">Condividi questo ID con gli altri partecipanti per unirvi alla stessa sessione.</p>
+            </div>
+        </div>
+
+        <!-- Master View -->
+        <div id="master-view" class="hidden">
+            <h1 class="text-4xl font-bold mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">Console Master</h1>
+            <div id="player-container" class="mb-4 rounded-lg shadow-2xl">
+                <div id="player"></div>
+                 <div id="player-placeholder" class="absolute inset-0 flex items-center justify-center bg-black">
+                    <div class="text-center">
+                        <h2 class="text-2xl font-semibold text-gray-400">In attesa della prossima canzone...</h2>
+                        <p class="text-gray-500">Clicca su una canzone per avviarla o usa il pulsante qui sotto.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mb-6">
+                 <button id="play-next-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                    Riproduci Prossima in Coda
+                </button>
+                 <button id="stop-current-btn" class="ml-3 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                    Ferma Riproduzione
+                </button>
+            </div>
+            <div id="master-playlist"></div>
+        </div>
+
+        <!-- Participant View -->
+        <div id="participant-view" class="hidden">
+            <h1 class="text-4xl font-bold mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">Prenota la tua Canzone</h1>
+            <p class="text-center text-gray-400 mb-6">Cerca una canzone su YouTube e aggiungila alla playlist!</p>
+            
+            <div class="bg-gray-800 p-6 rounded-lg shadow-xl mb-6">
+                <!-- User Name -->
+                <div class="mb-4">
+                    <label for="user-name" class="block text-sm font-medium text-gray-300 mb-1">Il tuo nome</label>
+                    <input type="text" id="user-name" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-pink-500 focus:border-pink-500" placeholder="Es. Mario Rossi">
+                </div>
+
+                <!-- Search -->
+                <div class="flex space-x-2">
+                    <input type="text" id="search-query" class="flex-grow w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-pink-500 focus:border-pink-500" placeholder="Cerca titolo o artista...">
+                    <button id="search-btn" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-5 rounded-lg shadow-lg transition-transform transform hover:scale-105">
+                        Cerca
+                    </button>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results" class="space-y-3 mb-8">
+                <!-- I risultati della ricerca verranno mostrati qui -->
+            </div>
+
+            <div id="participant-playlist"></div>
+        </div>
+    </div>
+
+    <!-- Templates -->
+    <template id="playlist-template">
+        <div>
+            <h2 class="text-2xl font-bold mt-8 mb-4 border-b-2 border-gray-700 pb-2">Playlist</h2>
+            <div id="playlist-content" class="space-y-3"></div>
+        </div>
+    </template>
+
+    <template id="song-item-template">
+        <div class="song-item p-4 rounded-lg flex items-center justify-between transition-all cursor-pointer" data-id="">
+            <div class="flex items-center flex-grow">
+                <div class="status-icon mr-4 text-2xl"></div>
+                <div class="flex-grow">
+                    <p class="font-semibold text-lg song-title">Titolo Canzone</p>
+                    <p class="text-sm text-gray-400 user-name">Nome Utente</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button class="play-song-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full text-sm transition-all">
+                    ▶️ Play
+                </button>
+                <button class="remove-song-btn hidden bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-full text-xs">
+                    Rimuovi
+                </button>
+            </div>
+        </div>
+    </template>
+    
+    <template id="search-result-template">
+        <div class="search-result-item flex items-center bg-gray-700/50 p-3 rounded-lg hover:bg-gray-700 transition-colors duration-200">
+            <img src="https://placehold.co/120x90/000000/FFFFFF?text=Thumb" alt="Video thumbnail" class="w-24 h-auto mr-4 rounded object-cover">
+            <div class="flex-grow overflow-hidden">
+                <p class="font-semibold text-white result-title truncate">Titolo del Video</p>
+                <p class="text-sm text-gray-400 result-channel">Nome Canale</p>
+            </div>
+            <button class="add-from-search-btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg ml-4 flex-shrink-0">Aggiungi</button>
+        </div>
+    </template>
+
+    <!-- Message Modal -->
+    <div id="message-modal" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg shadow-2xl p-8 max-w-sm w-full text-center">
+            <p id="message-text" class="text-lg mb-6"></p>
+            <button id="close-modal-btn" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-6 rounded-lg">OK</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, updateDoc, deleteDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- CONFIGURAZIONE FIREBASE ---
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCcJWibDU28O5kZu6NCIQ8nfGZCX8rfcvc",
+            authDomain: "kara2-14f79.firebaseapp.com",
+            projectId: "kara2-14f79",
+            storageBucket: "kara2-14f79.firebasestorage.app",
+            messagingSenderId: "758586668004",
+            appId: "1:758586668004:web:09be9a6c911f765c79cdf1"
+        };
+
+        const appId = "kara2-14f79";
+
+        // --- CHIAVE API YOUTUBE ---
+        // ATTENZIONE: Inserire una chiave API nel codice la espone pubblicamente.
+        // Usare solo per test o in ambienti controllati.
+        const YOUTUBE_API_KEY = "AIzaSyAklFEwD6-AJNEzDjb5P8MRWxkwl58vw7A";
+
+        // --- INIZIALIZZAZIONE ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- VARIABILI GLOBALI ---
+        let userId = null;
+        let currentRole = null;
+        let player;
+        let playlistCollection;
+
+        // --- ELEMENTI DEL DOM ---
+        const roleSelectionView = document.getElementById('role-selection-view');
+        const masterView = document.getElementById('master-view');
+        const participantView = document.getElementById('participant-view');
+        const sessionIdDisplay = document.getElementById('session-id-display');
+
+        // --- FUNZIONI DI UTILITY ---
+        function showModal(message) {
+            document.getElementById('message-text').textContent = message;
+            document.getElementById('message-modal').classList.remove('hidden');
+        }
+
+        // --- LOGICA PRINCIPALE ---
+        async function main() {
+            sessionIdDisplay.textContent = appId;
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    playlistCollection = collection(db, `artifacts/${appId}/public/data/playlist`);
+                    setupRoleSelection();
+                } else {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (error) {
+                        console.error("Errore durante l'accesso anonimo:", error);
+                        showModal("Impossibile connettersi al servizio.");
+                    }
+                }
+            });
+        }
+        
+        function setupRoleSelection() {
+            document.getElementById('master-btn').addEventListener('click', () => setRole('master'));
+            document.getElementById('participant-btn').addEventListener('click', () => setRole('participant'));
+            document.getElementById('close-modal-btn').addEventListener('click', () => {
+                document.getElementById('message-modal').classList.add('hidden');
+            });
+        }
+
+        function setRole(role) {
+            currentRole = role;
+            roleSelectionView.classList.add('hidden');
+            if (role === 'master') {
+                masterView.classList.remove('hidden');
+                loadYouTubeAPI();
+                setupMasterControls();
+            } else {
+                participantView.classList.remove('hidden');
+                setupParticipantControls();
+            }
+            renderPlaylist([]);
+            listenForPlaylistUpdates();
+        }
+
+        function loadYouTubeAPI() {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        }
+
+        window.onYouTubeIframeAPIReady = function() {
+            player = new YT.Player('player', {
+                height: '390', width: '640',
+                playerVars: { 'playsinline': 1, 'autoplay': 1, 'controls': 1, 'rel': 0 },
+                events: { 'onStateChange': onPlayerStateChange }
+            });
+        }
+
+        async function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.ENDED) {
+                const playingSong = document.querySelector('.song-item[data-status="playing"]');
+                if (playingSong) {
+                    const songId = playingSong.dataset.id;
+                    const songRef = doc(db, playlistCollection.path, songId);
+                    await updateDoc(songRef, { status: 'played' });
+                    
+                    // Auto-avvia la prossima canzone in coda
+                    const queuedSongs = document.querySelectorAll('.song-item[data-status="queued"]');
+                    if (queuedSongs.length > 0) {
+                        setTimeout(() => {
+                            document.getElementById('play-next-btn').click();
+                        }, 1000);
+                    } else {
+                        document.getElementById('player-placeholder').classList.remove('hidden');
+                        document.getElementById('player').classList.add('hidden');
+                    }
+                }
+            }
+        }
+
+        async function playSong(songId, videoId) {
+            // Prima ferma qualsiasi canzone attualmente in riproduzione
+            const currentlyPlaying = document.querySelector('.song-item[data-status="playing"]');
+            if (currentlyPlaying && currentlyPlaying.dataset.id !== songId) {
+                const currentSongRef = doc(db, playlistCollection.path, currentlyPlaying.dataset.id);
+                await updateDoc(currentSongRef, { status: 'queued' });
+            }
+
+            // Avvia la nuova canzone
+            document.getElementById('player-placeholder').classList.add('hidden');
+            document.getElementById('player').classList.remove('hidden');
+            
+            if (player && player.loadVideoById) {
+                player.loadVideoById(videoId);
+            }
+            
+            const songRef = doc(db, playlistCollection.path, songId);
+            await updateDoc(songRef, { status: 'playing' });
+        }
+        
+        function setupMasterControls() {
+            document.getElementById('play-next-btn').addEventListener('click', async () => {
+                const queuedSongs = document.querySelectorAll('.song-item[data-status="queued"]');
+                if (queuedSongs.length > 0) {
+                    const nextSongElement = queuedSongs[0];
+                    const songId = nextSongElement.dataset.id;
+                    const videoId = nextSongElement.dataset.videoid;
+                    await playSong(songId, videoId);
+                } else {
+                    showModal("Nessuna canzone in coda!");
+                    document.getElementById('player-placeholder').classList.remove('hidden');
+                    document.getElementById('player').classList.add('hidden');
+                }
+            });
+
+            document.getElementById('stop-current-btn').addEventListener('click', async () => {
+                const currentlyPlaying = document.querySelector('.song-item[data-status="playing"]');
+                if (currentlyPlaying) {
+                    const songId = currentlyPlaying.dataset.id;
+                    const songRef = doc(db, playlistCollection.path, songId);
+                    await updateDoc(songRef, { status: 'queued' });
+                }
+                
+                if (player && player.stopVideo) {
+                    player.stopVideo();
+                }
+                
+                document.getElementById('player-placeholder').classList.remove('hidden');
+                document.getElementById('player').classList.add('hidden');
+            });
+        }
+
+        function setupParticipantControls() {
+            document.getElementById('search-btn').addEventListener('click', searchYouTube);
+            const savedName = localStorage.getItem('karaokeUserName');
+            if(savedName) {
+                document.getElementById('user-name').value = savedName;
+            }
+        }
+
+        async function searchYouTube() {
+            const apiKey = YOUTUBE_API_KEY;
+            const query = document.getElementById('search-query').value.trim();
+
+            if (!query) {
+                showModal("Per favore, inserisci un termine di ricerca.");
+                return;
+            }
+            
+            const searchResultsContainer = document.getElementById('search-results');
+            searchResultsContainer.innerHTML = '<p class="text-center py-4">Ricerca in corso...</p>';
+
+            const fullQuery = `${query} karaoke`;
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(fullQuery)}&type=video&key=${apiKey}&maxResults=10`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Errore dall'API di YouTube: ${errorData.error.message}`);
+                }
+                const data = await response.json();
+                renderSearchResults(data.items);
+            } catch (error) {
+                console.error("Errore durante la ricerca su YouTube:", error);
+                showModal(`Si è verificato un errore durante la ricerca: ${error.message}`);
+                searchResultsContainer.innerHTML = `<p class="text-center text-red-400 py-4">Ricerca fallita. Controlla la chiave API e la console per dettagli.</p>`;
+            }
+        }
+
+        function renderSearchResults(items) {
+            const container = document.getElementById('search-results');
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = '<p class="text-center py-4">Nessun risultato trovato.</p>';
+                return;
+            }
+
+            const template = document.getElementById('search-result-template');
+            items.forEach(item => {
+                const resultNode = template.content.cloneNode(true);
+                const resultItem = resultNode.querySelector('.search-result-item');
+                
+                resultItem.querySelector('img').src = item.snippet.thumbnails.default.url;
+                resultItem.querySelector('.result-title').textContent = item.snippet.title;
+                resultItem.querySelector('.result-channel').textContent = item.snippet.channelTitle;
+
+                const addButton = resultItem.querySelector('.add-from-search-btn');
+                addButton.addEventListener('click', async () => {
+                    const userName = document.getElementById('user-name').value.trim();
+                    if (!userName) {
+                        showModal("Per favore, inserisci il tuo nome prima di aggiungere una canzone.");
+                        return;
+                    }
+                    localStorage.setItem('karaokeUserName', userName);
+                    
+                    addButton.disabled = true;
+                    addButton.textContent = 'Aggiunto!';
+
+                    try {
+                        await addDoc(playlistCollection, {
+                            userName: userName,
+                            songTitle: item.snippet.title,
+                            videoId: item.id.videoId,
+                            status: 'queued',
+                            createdAt: serverTimestamp(),
+                            addedBy: userId
+                        });
+                    } catch (error) {
+                        console.error("Errore nell'aggiungere la canzone:", error);
+                        showModal("Si è verificato un errore. Riprova.");
+                        addButton.disabled = false;
+                        addButton.textContent = 'Aggiungi';
+                    }
+                });
+                container.appendChild(resultNode);
+            });
+        }
+
+        function listenForPlaylistUpdates() {
+            const q = query(collection(db, playlistCollection.path), orderBy("createdAt"));
+            onSnapshot(q, (snapshot) => {
+                const songs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderPlaylist(songs);
+            }, (error) => {
+                console.error("Errore nell'ascolto della playlist:", error);
+                showModal("Errore di connessione alla playlist.");
+            });
+        }
+
+        function renderPlaylist(songs) {
+            const containerId = currentRole === 'master' ? 'master-playlist' : 'participant-playlist';
+            const playlistContainer = document.getElementById(containerId);
+            
+            if (!playlistContainer.querySelector('#playlist-content')) {
+                 const template = document.getElementById('playlist-template');
+                 playlistContainer.innerHTML = '';
+                 playlistContainer.appendChild(template.content.cloneNode(true));
+            }
+
+            const playlistContent = playlistContainer.querySelector('#playlist-content');
+            playlistContent.innerHTML = '';
+
+            let queuedSongsCount = 0;
+            if (songs.length === 0) {
+                playlistContent.innerHTML = '<p class="text-gray-500 text-center py-4">La playlist è vuota!</p>';
+            } else {
+                 songs.forEach(song => {
+                    const itemTemplate = document.getElementById('song-item-template');
+                    const songItem = itemTemplate.content.cloneNode(true).querySelector('.song-item');
+                    songItem.dataset.id = song.id;
+                    songItem.dataset.videoid = song.videoId;
+                    songItem.dataset.status = song.status;
+                    songItem.querySelector('.song-title').textContent = song.songTitle;
+                    songItem.querySelector('.user-name').textContent = `da: ${song.userName}`;
+                    
+                    const statusIcon = songItem.querySelector('.status-icon');
+                    const playBtn = songItem.querySelector('.play-song-btn');
+                    
+                    if (song.status === 'playing') {
+                        statusIcon.innerHTML = '▶️';
+                        songItem.classList.add('bg-purple-800', 'animate-pulse-slow');
+                        playBtn.textContent = '⏸️ Stop';
+                        playBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                        playBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+                    } else if (song.status === 'played') {
+                        statusIcon.innerHTML = '✅';
+                        songItem.classList.add('bg-gray-800', 'opacity-50');
+                        playBtn.textContent = '🔄 Replay';
+                        playBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                        playBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                    } else {
+                        statusIcon.innerHTML = '⏳';
+                        songItem.classList.add('bg-gray-700');
+                        queuedSongsCount++;
+                        playBtn.textContent = '▶️ Play';
+                        playBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                        playBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                    }
+                    
+                    // Mostra il pulsante Play solo per il master
+                    if (currentRole === 'master') {
+                        playBtn.classList.remove('hidden');
+                        playBtn.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            if (song.status === 'playing') {
+                                // Se è in riproduzione, fermala
+                                document.getElementById('stop-current-btn').click();
+                            } else {
+                                // Altrimenti avviala
+                                await playSong(song.id, song.videoId);
+                            }
+                        });
+                    } else {
+                        playBtn.classList.add('hidden');
+                    }
+                    
+                    const removeBtn = songItem.querySelector('.remove-song-btn');
+                    if(currentRole === 'master' || (song.addedBy && song.addedBy === userId)) {
+                        removeBtn.classList.remove('hidden');
+                        removeBtn.addEventListener('click', async (e) => {
+                            e.stopPropagation();
+                            await deleteDoc(doc(db, playlistCollection.path, song.id));
+                        });
+                    }
+                    playlistContent.appendChild(songItem);
+                });
+            }
+
+            if (currentRole === 'master') {
+                document.getElementById('play-next-btn').disabled = queuedSongsCount === 0;
+                document.getElementById('stop-current-btn').disabled = !document.querySelector('.song-item[data-status="playing"]');
+            }
+        }
+
+        main();
+    </script>
+</body>
+</html>
